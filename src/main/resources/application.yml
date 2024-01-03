@@ -1,0 +1,35 @@
+sms:
+  verification:
+    c1:
+      appkey: xxx1
+      appsecret: xxx11
+      provider: pers.helen.kafkademo.sender.sms.P1Provider
+    c2:
+      appkey: xxx2
+      appsecret: xxx22
+      provider: pers.helen.kafkademo.sender.sms.P1Provider
+
+#============== kafka ===================
+spring:
+  kafka:
+    bootstrap-servers: 192.168.0.xxx:30901,192.168.0.xxx:30902,192.168.0.xxx:30903  #broker???????????
+    producer:
+      retries: 0
+      batch-size: 16384
+      buffer-memory: 33554432
+      properties:
+        linger.ms: 1
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+    consumer:
+      group-id: test-consumer-group
+      auto-offset-reset: earliest
+      enable-auto-commit: true
+      auto-commit-interval: 100
+      session-timeout-ms: 100000
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+    listener:
+      missing-topics-fatal: false
