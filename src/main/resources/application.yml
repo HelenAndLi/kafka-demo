@@ -1,4 +1,21 @@
-#============== jpush ===================
+#============== 语音通知 ===================
+voicemsg:
+  access:
+    c1:
+      aliyun_key: xx
+      aliyun_secret: xxx
+      aliyun_url: xxxx
+      huyi_key: xxxxx
+      huyi_secret: xxxxxx
+      huyi_url: xxxxxxxx
+    c2:
+      aliyun_key: xx
+      aliyun_secret: xxx
+      aliyun_url: xxxxx
+      huyi_key: xxx
+      huyi_secret: xx
+      huyi_url: xx
+#============== 极光推送 ===================
 message:
   conf:
     c1:

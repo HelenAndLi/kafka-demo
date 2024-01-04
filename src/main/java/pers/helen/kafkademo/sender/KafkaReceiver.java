@@ -1,8 +1,18 @@
 package pers.helen.kafkademo.sender;
 
+import com.aliyun.dyvmsapi20170525.models.SingleCallByTtsRequest;
+import com.aliyun.dyvmsapi20170525.models.SingleCallByTtsResponse;
+import com.aliyun.teautil.models.RuntimeOptions;
 import okhttp3.MediaType;
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.NameValuePair;
+import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.tomcat.util.codec.binary.Base64;
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.DocumentHelper;
+import org.dom4j.Element;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,12 +35,15 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import pers.helen.kafkademo.sender.voicemessage.VmConfig;
+import pers.helen.kafkademo.sender.voicemessage.VoiceMessage;
 
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 @Component
 public class KafkaReceiver {
@@ -43,10 +56,16 @@ public class KafkaReceiver {
     private SmsClient smsClient2;
 
     @Resource(name = "c1Jpush")
-    private JpushConfig wxwpPush;
+    private JpushConfig c1Push;
 
-    @Resource(name = "zypdJpush")
-    private JpushConfig zypdPush;
+    @Resource(name = "c2Jpush")
+    private JpushConfig c2Push;
+
+    @Resource(name = "c1Vm")
+    private VmConfig c1Vm;
+
+    @Resource(name = "c2Vm")
+    private VmConfig c2Vm;
 
     @KafkaListener(topics = {"mytopic"})
     public void listen(ConsumerRecord<?, ?> record){
@@ -104,7 +123,7 @@ public class KafkaReceiver {
         OkHttpClient client = new OkHttpClient();
         Map<String, Object> headerMap = new HashMap<>();
         headerMap.put("Authorization",
-                "Basic " + Base64.encodeBase64String((wxwpPush.getAppkey() + ":" + wxwpPush.getAppsecret()).getBytes(StandardCharsets.UTF_8)));
+                "Basic " + Base64.encodeBase64String((c1Push.getAppkey() + ":" + c2Push.getAppsecret()).getBytes(StandardCharsets.UTF_8)));
         String url = "https://api.jpush.cn/v3/push";
         RequestBody requestBody = RequestBody.create(JsonUtils.obj2Str(msg), mediaType);
 
@@ -156,10 +175,89 @@ public class KafkaReceiver {
     }
 
     @KafkaListener(topics = {"topic_vm"})
-    public void listenVm(ConsumerRecord<?, ?> record){
+    public void listenVm(ConsumerRecord<?, String> record){
         System.out.println("消费语音消息");
-        System.out.println("topic名称:" + record.topic() + "\n" + "分区位置:" + record.partition() + "\n" + "key:" + record.key
-                () + "\n" + "偏移量:" + record.offset() + "\n" + "消息内容:" + record.value());
+        VoiceMessage msg = JsonUtils.str2Obj(record.value(), VoiceMessage.class);
+        if(msg.getType() == 1){
+            //aliyun
+            try{
+                String key;
+                String secret;
+                String url;
+                String[] callNumber = msg.getCallNumber();
+                if(msg.getPlatform() == 1){
+                    key = c1Vm.getAliyun_key();
+                    secret = c1Vm.getAliyun_secret();
+                    url = c1Vm.getAliyun_url();
+                }else{
+                    key = c2Vm.getAliyun_key();
+                    secret = c2Vm.getAliyun_secret();
+                    url = c2Vm.getAliyun_url();
+                }
+
+                com.aliyun.teaopenapi.models.Config config = new com.aliyun.teaopenapi.models.Config()
+                        .setAccessKeyId(key)
+                        .setAccessKeySecret(secret);
+                config.endpoint = url;
+                com.aliyun.dyvmsapi20170525.Client client = new com.aliyun.dyvmsapi20170525.Client(config);
+
+                SingleCallByTtsRequest singleCallByTtsRequest = new SingleCallByTtsRequest()
+                        .setCalledShowNumber(callNumber[new Random().nextInt(callNumber.length)])
+                        .setCalledNumber(msg.getToMobile())
+                        .setTtsCode(msg.getTtsCode());
+                RuntimeOptions runtime = new RuntimeOptions();
+                SingleCallByTtsResponse resp = client.singleCallByTtsWithOptions(singleCallByTtsRequest, runtime);
+                com.aliyun.teaconsole.Client.log(com.aliyun.teautil.Common.toJSONString(resp));
+
+            }catch(Exception e){
+                e.printStackTrace();
+            }
+        }else if(msg.getType() == 2){
+            String url;
+            String key;
+            String secret;
+            if(msg.getPlatform() == 1){
+                key = c1Vm.getHuyi_key();
+                secret = c1Vm.getHuyi_secret();
+                url = c1Vm.getHuyi_url();
+            }else{
+                key = c2Vm.getHuyi_key();
+                secret = c2Vm.getHuyi_secret();
+                url = c2Vm.getHuyi_url();
+            }
+            HttpClient client = new HttpClient();
+            PostMethod method = new PostMethod(url);
+
+            client.getParams().setContentCharset("UTF-8");
+            method.setRequestHeader("ContentType", "application/x-www-form-urlencoded;charset=UTF-8");
+
+            NameValuePair[] data = {//提交语音
+                    new NameValuePair("account", key),//用户名是登录用户中心->语音通知->帐户参数设置->APIID
+                    new NameValuePair("password", secret),//查看密码请登录用户中心->语音通知->帐户参数设置->APIKEY
+                    new NameValuePair("mobile", msg.getToMobile()),//手机号码
+                    new NameValuePair("content", msg.getMsg()),
+            };
+
+            method.setRequestBody(data);
+
+            try{
+                client.executeMethod(method);
+                String SubmitResult = method.getResponseBodyAsString();
+
+                Document doc = DocumentHelper.parseText(SubmitResult);
+                Element root = doc.getRootElement();
+
+                String code = root.elementText("code");
+                logger.error("hy voice result:{}", root.elementText("msg"));
+
+                if("2".equals(code)){
+                    logger.error("互亿语音提交成功！");
+                }
+
+            }catch(IOException | DocumentException e){
+                e.printStackTrace();
+            }
+        }
     }
 
     //    public static void main(String[] args){
