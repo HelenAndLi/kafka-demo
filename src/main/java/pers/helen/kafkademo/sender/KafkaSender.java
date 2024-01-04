@@ -5,16 +5,17 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import pers.helen.kafkademo.sender.jpush.JpushMessage;
 import pers.helen.kafkademo.sender.util.JsonUtils;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 @Component
 public class KafkaSender {
@@ -37,15 +38,31 @@ public class KafkaSender {
         p.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         KafkaProducer<String, String> kafkaProducer = new KafkaProducer<String, String>(p);
         try{
-            SmsMessage sms = new SmsMessage();
-            sms.setType(1);
-            List<String> toMobiles = new ArrayList<>();
-            toMobiles.add("1xxxxxxxxxx");
-            sms.setToMobiles(toMobiles);
-            ProducerRecord<String, String> record = new ProducerRecord<>("topic_sms", JsonUtils.obj2Str(sms));
-            kafkaProducer.send(record);
-            System.out.println("发送成功");
 
+        // 短信
+//            SmsMessage sms = new SmsMessage();
+//            sms.setType(1);
+//            List<String> toMobiles = new ArrayList<>();
+//            toMobiles.add("1xxxxxxxxxx");
+//            sms.setToMobiles(toMobiles);
+//            ProducerRecord<String, String> record = new ProducerRecord<>("topic_sms", JsonUtils.obj2Str(sms));
+//            kafkaProducer.send(record);
+//            System.out.println("发送成功");
+
+        // 极光
+        JpushMessage jpush = new JpushMessage();
+        jpush.setAlert("xxx，请及时处理！");
+        jpush.setTitle("xxx，请及时处理！");
+        jpush.setPlatform(1);
+        Set<String> alias = new HashSet<>();
+        alias.add("alias_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx".replace("-", ""));
+        jpush.setAlias(alias);
+        Map<String, Object> extras = new HashMap<>(6);
+        extras.put("module", "NOTICE");
+        jpush.setExtras(extras);
+        ProducerRecord<String, String> record = new ProducerRecord<>("topic_jpush", JsonUtils.obj2Str(jpush));
+        kafkaProducer.send(record);
+        System.out.println("发送成功");
         }finally{
             kafkaProducer.close();
         }

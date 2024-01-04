@@ -1,3 +1,19 @@
+#============== jpush ===================
+message:
+  conf:
+    c1:
+      appsecret: xxxx
+      appkey: xxxxx
+      #环境选择
+      environment: TEST
+    c2:
+      appsecret: xxxxxx
+      appkey: xxx
+      #环境选择
+      environment: TEST
+      #environment=PRODUCTION
+
+#============== sms ===================
 sms:
   verification:
     c1:
